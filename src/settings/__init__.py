@@ -63,21 +63,24 @@ class Settings(BaseModel):
                     "adc_channel": 0,
                     "orientation": "vertical",
                     "gain": 1000,
-                    "sensitivity": 28.8
+                    "sensitivity": 28.8,
+                    "use_differential_channel": True
                 },
                 {
                     "name": "EHN",
                     "adc_channel": 1,
                     "orientation": "north",
                     "gain": 1000,
-                    "sensitivity": 28.8
+                    "sensitivity": 28.8,
+                    "use_differential_channel": True
                 },
                 {
                     "name": "EHE",
                     "adc_channel": 2,
                     "orientation": "east",
                     "gain": 1000,
-                    "sensitivity": 28.8
+                    "sensitivity": 28.8,
+                    "use_differential_channel": True
                 }
             ]
         }

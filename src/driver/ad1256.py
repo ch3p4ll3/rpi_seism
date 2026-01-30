@@ -1,7 +1,12 @@
+from logging import getLogger
+
 from src.settings import Settings
 
 from .spi_driver import SPIDriver
 from .enums import ScanMode, ADCGain, DataRate, Registry, Commands
+
+
+logger = getLogger(__name__)
 
 
 class ADS1256:
@@ -17,16 +22,17 @@ class ADS1256:
 
     def __init_adc(self):
         if self.spi.module_init() != 0:
-            return -1
+            logger.error("Module init failed")
+            raise Exception("Module init failed")
+
         self.reset()
         chip_id = self.read_chip_id()
         if chip_id == 3 :
-            print("ID Read success  ")
+            logger.debug("ID read success")
         else:
-            print("ID Read failed   ")
+            logger.error("ID read failed")
             raise Exception("ID read failed")
         self.config_adc(ADCGain.GAIN_1, DataRate.DR_30000SPS)
-        return 0
 
     # Hardware reset
     def reset(self):
@@ -60,6 +66,7 @@ class ADS1256:
 
                 break
         if i >= 400000:
+            logger.warning("Timed out")
             print ("Time Out ...\r\n")
 
     def read_chip_id(self):

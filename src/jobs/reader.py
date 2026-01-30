@@ -20,8 +20,12 @@ class Reader(Thread):
         interval_per_channel = 1.0 / self.settings.sampling_rate  # seconds per channel
         next_sample_time = time.perf_counter()  # start now
 
+        self.__set_channels()
+
         try:
             while self._running:
+                timestamp = time.time()
+
                 for channel in self.settings.channels:
                     # Wait until the scheduled sample time
                     now = time.perf_counter()
@@ -33,7 +37,6 @@ class Reader(Thread):
                     adc_value = self.adc.get_channel_value(channel.adc_channel)
                     voltage = adc_value * 5.0 / 0x7FFFFF  # scale to volts
 
-                    timestamp = time.time()
                     self.__update_queues(channel, voltage, timestamp)
 
                     # Schedule next sample for this channel
@@ -41,6 +44,11 @@ class Reader(Thread):
 
         except Exception as e:
             print(f"Reader thread exception: {e}")
+    
+    def __set_channels(self):
+        for channel in self.settings.channels:
+            if channel.use_differential_channel:
+                self.adc.set_differential_channel(channel.adc_channel)
 
     def __update_queues(self, channel: Channel, value: float, timestamp: int):
         for queue in self.queues:
