@@ -4,7 +4,7 @@ from queue import Queue
 
 from src.settings import Settings
 from src.settings.channel import Channel
-from src.driver.ad1256 import ADS1256
+from src.driver.ads1256 import ADS1256
 
 
 class Reader(Thread):
@@ -31,7 +31,7 @@ class Reader(Thread):
 
                     # Read ADC and convert to voltage
                     adc_value = self.adc.get_channel_value(channel.adc_channel)
-                    voltage = adc_value * 5.0 / 0x7FFFFF  # scale to volts
+                    voltage = adc_value * 5.0 / 0x7FFFFF  # scale to volt
 
                     timestamp = time.time()
                     self.__update_queues(channel, voltage, timestamp)
