@@ -52,9 +52,8 @@ class Settings(BaseModel):
             "station": "RPI3",
             "sampling_rate": 100,
             "spi": {
-                "rst_pin": 18,
+                "pwdn_pin": 27,
                 "cs_pin": 22,
-                "cs_dac_pin": 23,
                 "drdy_pin": 17
             },
             "channels": [

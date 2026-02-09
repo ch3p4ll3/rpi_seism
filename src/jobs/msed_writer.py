@@ -1,4 +1,4 @@
-import threading
+from threading import Thread, Event
 import time
 from queue import Queue, Empty
 from obspy import Stream, Trace, UTCDateTime
@@ -8,8 +8,8 @@ import os
 from src.settings import Settings
 
 
-class MSeedWriter(threading.Thread):
-    def __init__(self, settings: Settings, data_queue: Queue, output_dir: str, write_interval_sec: int = 1800):
+class MSeedWriter(Thread):
+    def __init__(self, settings: Settings, data_queue: Queue, output_dir: str, shutdown_event: Event, write_interval_sec: int = 1800):
         """
         Args:
             data_queue (Queue): Queue from which to get (Channel, value) tuples
@@ -21,7 +21,7 @@ class MSeedWriter(threading.Thread):
         self.data_queue = data_queue
         self.output_dir = output_dir
         self.write_interval_sec = write_interval_sec
-        self._running = True
+        self.shutdown_event = shutdown_event
 
         # Temporary storage: dict of channel_name -> list of (timestamp, value)
         self._buffer = {}
@@ -29,7 +29,7 @@ class MSeedWriter(threading.Thread):
     def run(self):
         next_write_time = time.time() + self.write_interval_sec
 
-        while self._running:
+        while not self.shutdown_event.is_set():
             now = time.time()
 
             # Collect data from the queue
@@ -87,6 +87,3 @@ class MSeedWriter(threading.Thread):
 
         # Clear buffer after writing
         self._buffer.clear()
-
-    def stop(self):
-        self._running = False

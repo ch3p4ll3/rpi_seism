@@ -30,8 +30,7 @@ class SPI():
     def module_init(self):
         self.h = lgpio.gpiochip_open(0)
 
-        lgpio.gpio_claim_output(self.h, self.settings.spi.rst_pin)
-        lgpio.gpio_claim_output(self.h, self.settings.spi.cs_dac_pin)
+        lgpio.gpio_claim_output(self.h, self.settings.spi.pwdn_pin)
         lgpio.gpio_claim_output(self.h, self.settings.spi.cs_pin)
         lgpio.gpio_claim_input(self.h, self.settings.spi.drdy_pin)
         self.spi.max_speed_hz = 20000

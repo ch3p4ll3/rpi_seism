@@ -1,6 +1,6 @@
 import asyncio
 import json
-from threading import Thread
+from threading import Thread, Event
 from queue import Queue
 from collections import deque
 
@@ -10,7 +10,7 @@ from obspy import Trace, UTCDateTime
 
 
 class WebSocketSender(Thread):
-    def __init__(self, data_queue: Queue, host: str = "localhost", port: int = 8765, downsample_rate: int = 10):
+    def __init__(self, data_queue: Queue, shutdown_event: Event, host: str = "localhost", port: int = 8765, downsample_rate: int = 10):
         """
         Args:
             data_queue (Queue): Queue from which data will be read (channel, value, timestamp)
@@ -23,7 +23,7 @@ class WebSocketSender(Thread):
         self.host = host
         self.port = port
         self.downsample_rate = downsample_rate
-        self._running = True
+        self.shutdown_event = shutdown_event
         self._buffers = {}  # {channel_name: deque of (timestamp, value)}
 
     def run(self):
@@ -36,7 +36,7 @@ class WebSocketSender(Thread):
 
     async def _handle_connection(self, websocket):
         try:
-            while self._running:
+            while not self.shutdown_event.is_set():
                 # Get data from the queue
                 try:
                     channel, value, timestamp = self.data_queue.get(timeout=1)  # 1-second timeout
@@ -84,6 +84,3 @@ class WebSocketSender(Thread):
         # Send message via WebSocket
         await websocket.send(json.dumps(message))
         print(f"Sent data: {message}")
-
-    def stop(self):
-        self._running = False
