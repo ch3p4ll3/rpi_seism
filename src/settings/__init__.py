@@ -12,6 +12,7 @@ class Settings(BaseModel):
     station: str
 
     sampling_rate: int
+    use_differential_channel: bool
     spi: Spi
     channels: list[Channel]
 
@@ -51,6 +52,7 @@ class Settings(BaseModel):
             "network": "XX",
             "station": "RPI3",
             "sampling_rate": 100,
+            "use_differential_channel": True,
             "spi": {
                 "pwdn_pin": 27,
                 "cs_pin": 22,
@@ -62,24 +64,21 @@ class Settings(BaseModel):
                     "adc_channel": 0,
                     "orientation": "vertical",
                     "gain": 1000,
-                    "sensitivity": 28.8,
-                    "use_differential_channel": True
+                    "sensitivity": 28.8
                 },
                 {
                     "name": "EHN",
                     "adc_channel": 1,
                     "orientation": "north",
                     "gain": 1000,
-                    "sensitivity": 28.8,
-                    "use_differential_channel": True
+                    "sensitivity": 28.8
                 },
                 {
                     "name": "EHE",
                     "adc_channel": 2,
                     "orientation": "east",
                     "gain": 1000,
-                    "sensitivity": 28.8,
-                    "use_differential_channel": True
+                    "sensitivity": 28.8
                 }
             ]
         }
