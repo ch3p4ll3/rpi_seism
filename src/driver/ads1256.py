@@ -7,7 +7,7 @@ logger = getLogger(__name__)
 
 
 class ADS1256:
-    def __init__(self, settings: Settings):
+    def __init__(self, settings: Settings, gain: Gain=Gain.ADS1256_GAIN_1, data_rate: DataRate = DataRate.ADS1256_30000SPS):
         self.pwdn_pin = settings.spi.pwdn_pin
         self.cs_pin = settings.spi.cs_pin
         self.drdy_pin = settings.spi.drdy_pin
@@ -15,6 +15,8 @@ class ADS1256:
         self.spi = SPI(settings)
 
         self.scan_mode = ScanMode.SingleEndedInput
+        self.gain = gain
+        self.data_rate = data_rate
     
     def __enter__(self):
         self.ADS1256_init()
@@ -114,7 +116,7 @@ class ADS1256:
         else:
             logger.warn(f"ID read failed. Chip ID: {chip_id}")
             return -1
-        self.config_adc(Gain.ADS1256_GAIN_1, DataRate.ADS1256_30000SPS)
+        self.config_adc(self.gain, self.data_rate)
         return 0
 
     def read_adc_data(self):
