@@ -1,7 +1,7 @@
 from threading import Thread, Event
 from queue import Queue, Empty
 from collections import deque
-
+from logging import getLogger
 import json
 import asyncio
 
@@ -10,6 +10,9 @@ import websockets
 from obspy import UTCDateTime, Trace
 
 from src.settings import Settings
+
+
+logger = getLogger(__name__)
 
 
 class WebSocketSender(Thread):
@@ -44,7 +47,7 @@ class WebSocketSender(Thread):
 
     async def _main_loop(self):
         async with websockets.serve(self._handle_connection, self.host, self.port):
-            print(f"Downsampled Data Server started on ws://{self.host}:{self.port}")
+            logger.debug(f"Downsampled Data Server started on ws://{self.host}:{self.port}")
             await self._producer_loop()
 
     async def _handle_connection(self, websocket):
@@ -75,7 +78,7 @@ class WebSocketSender(Thread):
             except Empty:
                 continue
             except Exception as e:
-                print(f"Error in producer: {e}")
+                logger.exception(f"Error in producer: {e}", exc_info=True)
 
     async def _process_and_broadcast(self, channel_name):
         """Perform downsampling on the current window and send results."""

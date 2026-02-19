@@ -1,11 +1,14 @@
 import time
 from threading import Thread, Event
 from queue import Queue
+from logging import getLogger
 
 from src.settings import Settings
 from src.settings.channel import Channel
 from src.driver.ads1256 import ADS1256
 from src.driver.enums import ScanMode
+
+logger = getLogger(__name__)
 
 
 class Reader(Thread):
@@ -49,12 +52,12 @@ class Reader(Thread):
                         time.sleep(sleep_time)
                     else:
                         # If we are here, the RPi is falling behind!
-                        pass
+                        logger.warning("RPi is falling behind!")
 
         except Exception as e:
-            print(f"Reader thread exception: {e}")
+            logger.exception(f"Reader thread exception: {e}", exc_info=True)
         finally:
-            print(f"Recording finished. Total cycles: {samples_collected}")
+            logger.debug(f"Recording finished. Total cycles: {samples_collected}")
 
     def __update_queues(self, channel: Channel, value: float, timestamp: float):
         for queue in self.queues:

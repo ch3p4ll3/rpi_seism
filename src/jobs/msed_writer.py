@@ -1,11 +1,15 @@
 from threading import Thread, Event
 import time
 from queue import Queue, Empty
+from pathlib import Path
+from logging import getLogger
+
 from obspy import Stream, Trace, UTCDateTime
 import numpy as np
-import os
 
 from src.settings import Settings
+
+logger = getLogger(__name__)
 
 
 class MSeedWriter(Thread):
@@ -60,8 +64,10 @@ class MSeedWriter(Thread):
         if not self._buffer:
             return
 
-        print(f"Writing {len(self._buffer)} channels to MiniSEED...")
-        os.makedirs(self.output_dir, exist_ok=True)
+        output_dir = Path(self.output_dir)
+
+        logger.debug(f"Writing {len(self._buffer)} channels to MiniSEED...")
+        output_dir.mkdir(parents=True, exist_ok=True)
         stream = Stream()
 
         for channel_name, data_list in self._buffer.items():
@@ -81,9 +87,9 @@ class MSeedWriter(Thread):
             stream.append(trace)
 
         if stream:
-            filename = os.path.join(self.output_dir, f"data_{UTCDateTime().strftime('%Y%m%dT%H%M%S')}.mseed")
+            filename = output_dir / f"data_{UTCDateTime().strftime('%Y%m%dT%H%M%S')}.mseed"
             stream.write(filename, format='MSEED')
-            print(f"Written {filename}")
+            logger.debug(f"Written {filename}")
 
         # Clear buffer after writing
         self._buffer.clear()
