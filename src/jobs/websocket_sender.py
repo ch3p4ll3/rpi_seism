@@ -34,8 +34,8 @@ class WebSocketSender(Thread):
         self.settings = settings
 
         # Sliding Window Config
-        self.window_size = 500  # 2.5s lookback for filter stability
-        self.step_size = 100    # Update every 0.5s
+        self.window_size = self.settings.sampling_rate * 5  # 2.5s lookback for filter stability
+        self.step_size = self.settings.sampling_rate    # Update every 0.5s
 
         # Buffers
         self.data_buffer = deque(maxlen=self.window_size)

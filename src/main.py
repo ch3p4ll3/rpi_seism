@@ -4,7 +4,7 @@ from pathlib import Path
 from threading import Event
 
 from src.settings import Settings
-from src.jobs import Reader, MSeedWriter, WebSocketSender
+from src.jobs import Reader, MSeedWriter, WebSocketSender, TriggerProcessor
 
 
 def main():
@@ -26,9 +26,10 @@ def main():
     # Create queues for communication between jobs
     msed_writer_queue = Queue()
     websocket_queue = Queue()
+    trigger_queue = Queue()
 
     # Create and start the Reader job thread (reads from ADC, puts data in the queues)
-    reader_job = Reader(settings, [msed_writer_queue, websocket_queue], shutdown_event)
+    reader_job = Reader(settings, [msed_writer_queue, websocket_queue, trigger_queue], shutdown_event)
     reader_job.start()
 
     # Create and start the MSeedWriter job thread (writes data to MiniSEED file)
@@ -38,6 +39,11 @@ def main():
     # Create and start the WebSocketSender job thread (sends data over WebSocket)
     websocket_job = WebSocketSender(settings, websocket_queue, shutdown_event, host="0.0.0.0")
     websocket_job.start()
+
+    # Create and start the WebSocketSender job thread (sends data over WebSocket)
+    websocket_job = TriggerProcessor(settings, trigger_queue, shutdown_event)
+    websocket_job.start()
+
 
     # Gracefully stop all threads
     reader_job.join()

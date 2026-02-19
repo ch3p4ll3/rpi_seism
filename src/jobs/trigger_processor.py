@@ -10,7 +10,7 @@ class TriggerProcessor(Thread):
         super().__init__()
         self.data_queue = data_queue
         self.shutdown_event = shutdown_event
-        self.detector = STALTAProperty(sampling_rate=settings.sa)
+        self.detector = STALTAProperty(sampling_rate=settings.sampling_rate)
 
     def run(self):
         while not self.shutdown_event.is_set():
@@ -36,3 +36,5 @@ class TriggerProcessor(Thread):
             "ratio": round(ratio, 2),
             "timestamp": ts
         }
+
+        print(event_msg)
