@@ -62,14 +62,14 @@ class ADS1256:
                 break
 
         if i >= 400000:
-            logger.warn("DRDY timed out")
+            logger.warninging("DRDY timed out")
 
     def read_chip_id(self):
         self.__wait_drdy()
-        id = self.__read_data(Reg.REG_STATUS)
-        id = id[0] >> 4
+        chip_id = self.__read_data(Reg.REG_STATUS)
+        chip_id = chip_id[0] >> 4
         # print 'ID',id
-        return id
+        return chip_id
 
     #The configuration parameters of ADC, gain and data rate
     def config_adc(self, gain: Gain, drate: DataRate):
@@ -95,13 +95,13 @@ class ADS1256:
     def set_diff_channel(self, channel: int):
         match channel:
             case 0:
-                self.__write_reg(Reg.REG_MUX, (0 << 4) | 1) 	#DiffChannal  AIN0-AIN1
+                self.__write_reg(Reg.REG_MUX, (0 << 4) | 1) 	# differential channel AIN0-AIN1
             case 1:
-                self.__write_reg(Reg.REG_MUX, (2 << 4) | 3) 	#DiffChannal   AIN2-AIN3
+                self.__write_reg(Reg.REG_MUX, (2 << 4) | 3) 	# differential channel AIN2-AIN3
             case 2:
-                self.__write_reg(Reg.REG_MUX, (4 << 4) | 5) 	#DiffChannal    AIN4-AIN5
+                self.__write_reg(Reg.REG_MUX, (4 << 4) | 5) 	# differential channel AIN4-AIN5
             case 3:
-                self.__write_reg(Reg.REG_MUX, (6 << 4) | 7) 	#DiffChannal   AIN6-AIN7
+                self.__write_reg(Reg.REG_MUX, (6 << 4) | 7) 	# differential channel AIN6-AIN7
 
     def set_mode(self, mode: ScanMode):
         self.scan_mode = mode
@@ -114,7 +114,7 @@ class ADS1256:
         if chip_id == 3 :
             logger.debug("ID read success")
         else:
-            logger.warn(f"ID read failed. Chip ID: {chip_id}")
+            logger.warning(f"ID read failed. Chip ID: {chip_id}")
             return -1
         self.config_adc(self.gain, self.data_rate)
         return 0
@@ -135,7 +135,7 @@ class ADS1256:
         return read
  
     def get_channel_value(self, channel: int):
-        if self.scan_mode == ScanMode.SingleEndedInput:# 0  Single-ended input  8 channel1 Differential input  4 channe
+        if self.scan_mode == ScanMode.SingleEndedInput: # SingleEndedInput = 8 channels. 1 Differential input  4 channels
             if channel >= 8:
                 return 0
 
@@ -151,9 +151,9 @@ class ADS1256:
                 return 0
             self.set_diff_channel(channel)
             self.__write_cmd(Commands.CMD_SYNC)
-            # self.spi.delay_ms(10) 
+            # self.spi.delay_ms(10)
             self.__write_cmd(Commands.CMD_WAKEUP)
-            # self.spi.delay_ms(10) 
+            # self.spi.delay_ms(10)
             value = self.read_adc_data()
 
         return value

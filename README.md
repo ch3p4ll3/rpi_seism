@@ -1,7 +1,3 @@
-Excellent. I have updated the license to **GPL v3** and refined the content to ensure it is as technical, clear, and comprehensive as possible.
-
----
-
 # 🛰️ rpi-seism: High-Precision Seismic Data Acquisition
 
 **rpi-seism** is a robust, professional-grade data acquisition (DAQ) system designed to transform a Raspberry Pi into a continuous seismic station. By interfacing with the **ADS1256 24-bit ADC**, it captures high-resolution analog signals from geophones or accelerometers, archives them in industry-standard **MiniSEED** format, and provides real-time telemetry via **WebSockets**.
