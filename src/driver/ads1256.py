@@ -48,25 +48,20 @@ class ADS1256:
         self.__write_cmd(Commands.CMD_RESET)
 
     def __write_cmd(self, cmd: Commands):
-        logger.debug(f"Writing command: {cmd}")
         self.spi.digital_write(self.cs_pin, 0)  #cs  0
         self.spi.spi_writebyte([cmd.value])
         self.spi.digital_write(self.cs_pin, 1)  #cs 1
 
     def __write_reg(self, reg: Reg, data):
-        logger.debug(f"Writing registry: {reg}, data: {data}")
         self.spi.digital_write(self.cs_pin, 0)  #cs  0
         self.spi.spi_writebyte([Commands.CMD_WREG.value | reg.value, 0x00, data])
         self.spi.digital_write(self.cs_pin, 1)  #cs 1
 
     def __read_data(self, reg: Reg):
-        logger.debug(f"Reading data from registry: {reg}")
         self.spi.digital_write(self.cs_pin, 0)#cs  0
         self.spi.spi_writebyte([Commands.CMD_RREG.value | reg.value, 0x00])
         data = self.spi.spi_readbytes(1)
         self.spi.digital_write(self.cs_pin, 1)  #cs 1
-
-        logger.debug(f"Data read: {data}")
 
         return data
 

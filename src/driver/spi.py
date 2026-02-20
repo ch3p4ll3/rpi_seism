@@ -33,7 +33,8 @@ class SPI():
         lgpio.gpio_claim_output(self.h, self.settings.spi.pwdn_pin)
         lgpio.gpio_claim_output(self.h, self.settings.spi.cs_pin)
         lgpio.gpio_claim_input(self.h, self.settings.spi.drdy_pin)
-        self.spi.max_speed_hz = 20000
+
+        self.spi.max_speed_hz = 2000000 # use 2 MHz
         self.spi.mode = 0b01
         return 0
 

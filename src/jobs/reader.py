@@ -52,7 +52,7 @@ class Reader(Thread):
                         time.sleep(sleep_time)
                     else:
                         # If we are here, the RPi is falling behind!
-                        logger.warning("RPi is falling behind!")
+                        logger.warning(f"RPi is falling behind by {abs(sleep_time):.4f}s")
 
         except Exception as e:
             logger.exception(f"Reader thread exception: {e}", exc_info=True)
