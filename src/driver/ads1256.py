@@ -45,7 +45,7 @@ class ADS1256:
         self.spi.digital_write(self.pwdn_pin, 0)
         self.spi.delay_ms(200)
         self.spi.digital_write(self.pwdn_pin, 1)
-        self.__write_cmd(Commands.CMD_RESET)
+        self.__write_cmd(Commands.RESET)
 
     def __write_cmd(self, cmd: Commands):
         self.spi.digital_write(self.cs_pin, 0)  #cs  0
@@ -54,12 +54,12 @@ class ADS1256:
 
     def __write_reg(self, reg: Reg, data):
         self.spi.digital_write(self.cs_pin, 0)  #cs  0
-        self.spi.spi_writebyte([Commands.CMD_WREG.value | reg.value, 0x00, data])
+        self.spi.spi_writebyte([Commands.WREG.value | reg.value, 0x00, data])
         self.spi.digital_write(self.cs_pin, 1)  #cs 1
 
     def __read_data(self, reg: Reg):
         self.spi.digital_write(self.cs_pin, 0)#cs  0
-        self.spi.spi_writebyte([Commands.CMD_RREG.value | reg.value, 0x00])
+        self.spi.spi_writebyte([Commands.RREG.value | reg.value, 0x00])
         data = self.spi.spi_readbytes(1)
         self.spi.digital_write(self.cs_pin, 1)  #cs 1
 
@@ -81,23 +81,23 @@ class ADS1256:
         """
         if channel > 7:
             return 0
-        self.__write_reg(Reg.REG_MUX, (channel<<4) | (1<<3))
+        self.__write_reg(Reg.MUX, (channel<<4) | (1<<3))
 
     def __set_diff_channel(self, channel: int):
         match channel:
             case 0:
-                self.__write_reg(Reg.REG_MUX, (0 << 4) | 1) # differential channel AIN0-AIN1
+                self.__write_reg(Reg.MUX, (0 << 4) | 1) # differential channel AIN0-AIN1
             case 1:
-                self.__write_reg(Reg.REG_MUX, (2 << 4) | 3) # differential channel AIN2-AIN3
+                self.__write_reg(Reg.MUX, (2 << 4) | 3) # differential channel AIN2-AIN3
             case 2:
-                self.__write_reg(Reg.REG_MUX, (4 << 4) | 5) # differential channel AIN4-AIN5
+                self.__write_reg(Reg.MUX, (4 << 4) | 5) # differential channel AIN4-AIN5
             case 3:
-                self.__write_reg(Reg.REG_MUX, (6 << 4) | 7) # differential channel AIN6-AIN7
+                self.__write_reg(Reg.MUX, (6 << 4) | 7) # differential channel AIN6-AIN7
 
     def __read_adc_data(self):
         self.__wait_drdy()
         self.spi.digital_write(self.cs_pin, 0)  #cs  0
-        self.spi.spi_writebyte([Commands.CMD_RDATA.value])
+        self.spi.spi_writebyte([Commands.RDATA.value])
         # self.spi.delay_ms(10)
 
         buf = self.spi.spi_readbytes(3)
@@ -114,7 +114,7 @@ class ADS1256:
         Reads chip ID
         """
         self.__wait_drdy()
-        chip_id = self.__read_data(Reg.REG_STATUS)
+        chip_id = self.__read_data(Reg.STATUS)
         chip_id = chip_id[0] >> 4
         # print 'ID',id
         return chip_id
@@ -137,7 +137,7 @@ class ADS1256:
         buf[3] = drate.value
 
         self.spi.digital_write(self.cs_pin, 0)  #cs  0
-        self.spi.spi_writebyte([Commands.CMD_WREG.value | 0, 0x03])
+        self.spi.spi_writebyte([Commands.WREG.value | 0, 0x03])
         self.spi.spi_writebyte(buf)
 
         self.spi.digital_write(self.cs_pin, 1)  #cs 1
@@ -163,7 +163,7 @@ class ADS1256:
         if chip_id == 3 :
             logger.debug("ID read success")
         else:
-            logger.warning(f"ID read failed. Chip ID: {chip_id}")
+            logger.warning("ID read failed. Chip ID: %d", chip_id)
             return -1
         self.config_adc(self.gain, self.data_rate)
         return 0
@@ -180,9 +180,9 @@ class ADS1256:
                 return 0
 
             self.__set_channel(channel)
-            self.__write_cmd(Commands.CMD_SYNC)
+            self.__write_cmd(Commands.SYNC)
             # self.spi.delay_ms(10)
-            self.__write_cmd(Commands.CMD_WAKEUP)
+            self.__write_cmd(Commands.WAKEUP)
             # self.spi.delay_ms(200)
             value = self.__read_adc_data()
 
@@ -190,9 +190,9 @@ class ADS1256:
             if channel >= 4:
                 return 0
             self.__set_diff_channel(channel)
-            self.__write_cmd(Commands.CMD_SYNC)
+            self.__write_cmd(Commands.SYNC)
             # self.spi.delay_ms(10)
-            self.__write_cmd(Commands.CMD_WAKEUP)
+            self.__write_cmd(Commands.WAKEUP)
             # self.spi.delay_ms(10)
             value = self.__read_adc_data()
 

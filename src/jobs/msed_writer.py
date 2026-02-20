@@ -73,7 +73,7 @@ class MSeedWriter(Thread):
         if not self._buffer:
             return
 
-        logger.debug(f"Writing {len(self._buffer)} channels to MiniSEED...")
+        logger.debug("Writing %d channels to MiniSEED...", len(self._buffer))
         self.output_dir.mkdir(parents=True, exist_ok=True)
         stream = Stream()
 
@@ -96,7 +96,7 @@ class MSeedWriter(Thread):
         if stream:
             filename = self.output_dir / f"data_{UTCDateTime().strftime('%Y%m%dT%H%M%S')}.mseed"
             stream.write(filename, format='MSEED')
-            logger.debug(f"Written {filename}")
+            logger.debug("Written %s", filename)
 
         # Clear buffer after writing
         self._buffer.clear()

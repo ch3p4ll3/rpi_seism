@@ -56,19 +56,19 @@ class Reader(Thread):
                         time.sleep(sleep_time)
                     else:
                         # If we are here, the RPi is falling behind!
-                        logger.warning(f"RPi is falling behind by {abs(sleep_time):.4f}s")
+                        logger.warning("RPi is falling behind by %f s", abs(sleep_time))
 
                         # This 'snaps' the schedule to the present moment
                         start_time = time.perf_counter()
                         samples_collected = 0
 
-        except Exception as e:
-            logger.exception(f"Reader thread exception: {e}", exc_info=True)
+        except Exception:
+            logger.exception("Reader thread exception", exc_info=True)
         finally:
-            logger.debug(f"Recording finished. Total cycles: {samples_collected}")
+            logger.debug("Recording finished. Total cycles: %d", samples_collected)
 
     def __update_queues(self, channel: Channel, value: float, timestamp: float):
         for queue in self.queues:
-            # Tip: Ensure your consumer queue handles data quickly 
+            # Tip: Ensure your consumer queue handles data quickly
             # so this thread doesn't block.
             queue.put((channel, value, timestamp))

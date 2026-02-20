@@ -49,7 +49,7 @@ class WebSocketSender(Thread):
 
     async def _main_loop(self):
         async with websockets.serve(self._handle_connection, self.host, self.port):
-            logger.debug(f"Downsampled Data Server started on ws://{self.host}:{self.port}")
+            logger.debug("Downsampled Data Server started on ws://%s:%d", self.host, self.port)
             await self._producer_loop()
 
     async def _handle_connection(self, websocket):
@@ -80,7 +80,7 @@ class WebSocketSender(Thread):
             except Empty:
                 continue
             except Exception as e:
-                logger.exception(f"Error in producer: {e}", exc_info=True)
+                logger.exception("Error in producer.", exc_info=True)
 
     async def _process_and_broadcast(self, channel_name):
         """Perform downsampling on the current window and send results."""
