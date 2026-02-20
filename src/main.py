@@ -2,9 +2,13 @@ import signal
 from queue import Queue
 from pathlib import Path
 from threading import Event
+from logging import getLogger
 
 from src.settings import Settings
 from src.jobs import Reader, MSeedWriter, WebSocketSender, TriggerProcessor
+
+
+logger = getLogger(__name__)
 
 
 def main():
@@ -17,7 +21,7 @@ def main():
 
     # Define a signal handler for systemd (SIGTERM)
     def handle_exit(sig, frame):
-        print(f"Exit signal {sig} received. Shutting down...")
+        logger.debug(f"Exit signal {sig} received. Shutting down...")
         shutdown_event.set()
 
     signal.signal(signal.SIGTERM, handle_exit)
@@ -52,7 +56,7 @@ def main():
     m_seed_writer_job.join()
     websocket_job.join()
 
-    print("All threads stopped and the main script has finished.")
+    logger.debug("All threads stopped and the main script has finished.")
 
 
 if __name__ == "__main__":

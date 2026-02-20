@@ -1,23 +1,37 @@
+from logging import getLogger
+
 from src.driver.enums import ScanMode, Gain, Reg, Commands, DataRate
 from src.settings import Settings
 from src.driver.spi import SPI
 
-from logging import getLogger
 logger = getLogger(__name__)
 
 
 class ADS1256:
+    """
+    A class for interacting with ADS1256
+    """
     def __init__(self, settings: Settings, gain: Gain=Gain.ADS1256_GAIN_1, data_rate: DataRate = DataRate.ADS1256_30000SPS):
+        """
+        Instantiate an ADS1256 class
+        
+        :param settings: The settings
+        :type settings: Settings
+        :param gain: The gain at which the PGA will be set. Default = 1
+        :type gain: Gain
+        :param data_rate: The data rate at which the ADS1256 will sample data. Default = 30000SPS
+        :type data_rate: DataRate
+        """
         self.pwdn_pin = settings.spi.pwdn_pin
         self.cs_pin = settings.spi.cs_pin
         self.drdy_pin = settings.spi.drdy_pin
 
         self.spi = SPI(settings)
 
-        self.scan_mode = ScanMode.SingleEndedInput
+        self.scan_mode = ScanMode.SINGLE_ENDED_INPUT
         self.gain = gain
         self.data_rate = data_rate
-    
+
     def __enter__(self):
         self.ADS1256_init()
         return self
@@ -35,22 +49,22 @@ class ADS1256:
 
     def __write_cmd(self, cmd: Commands):
         logger.debug(f"Writing command: {cmd}")
-        self.spi.digital_write(self.cs_pin, 0)#cs  0
+        self.spi.digital_write(self.cs_pin, 0)  #cs  0
         self.spi.spi_writebyte([cmd.value])
-        self.spi.digital_write(self.cs_pin, 1)#cs 1
+        self.spi.digital_write(self.cs_pin, 1)  #cs 1
 
     def __write_reg(self, reg: Reg, data):
         logger.debug(f"Writing registry: {reg}, data: {data}")
-        self.spi.digital_write(self.cs_pin, 0)#cs  0
+        self.spi.digital_write(self.cs_pin, 0)  #cs  0
         self.spi.spi_writebyte([Commands.CMD_WREG.value | reg.value, 0x00, data])
-        self.spi.digital_write(self.cs_pin, 1)#cs 1
+        self.spi.digital_write(self.cs_pin, 1)  #cs 1
 
     def __read_data(self, reg: Reg):
         logger.debug(f"Reading data from registry: {reg}")
         self.spi.digital_write(self.cs_pin, 0)#cs  0
         self.spi.spi_writebyte([Commands.CMD_RREG.value | reg.value, 0x00])
         data = self.spi.spi_readbytes(1)
-        self.spi.digital_write(self.cs_pin, 1)#cs 1
+        self.spi.digital_write(self.cs_pin, 1)  #cs 1
 
         logger.debug(f"Data read: {data}")
 
@@ -63,8 +77,47 @@ class ADS1256:
 
         if i >= 400000:
             logger.warninging("DRDY timed out")
+    
+    def __set_channel(self, channel):
+        """
+        Docstring for set_channel
+        
+        :param channel: Description
+        """
+        if channel > 7:
+            return 0
+        self.__write_reg(Reg.REG_MUX, (channel<<4) | (1<<3))
+
+    def __set_diff_channel(self, channel: int):
+        match channel:
+            case 0:
+                self.__write_reg(Reg.REG_MUX, (0 << 4) | 1) # differential channel AIN0-AIN1
+            case 1:
+                self.__write_reg(Reg.REG_MUX, (2 << 4) | 3) # differential channel AIN2-AIN3
+            case 2:
+                self.__write_reg(Reg.REG_MUX, (4 << 4) | 5) # differential channel AIN4-AIN5
+            case 3:
+                self.__write_reg(Reg.REG_MUX, (6 << 4) | 7) # differential channel AIN6-AIN7
+
+    def __read_adc_data(self):
+        self.__wait_drdy()
+        self.spi.digital_write(self.cs_pin, 0)  #cs  0
+        self.spi.spi_writebyte([Commands.CMD_RDATA.value])
+        # self.spi.delay_ms(10)
+
+        buf = self.spi.spi_readbytes(3)
+        self.spi.digital_write(self.cs_pin, 1)  #cs 1
+        read = (buf[0]<<16) & 0xff0000
+        read |= (buf[1]<<8) & 0xff00
+        read |= (buf[2]) & 0xff
+        if read & 0x800000:
+            read &= 0xF000000
+        return read
 
     def read_chip_id(self):
+        """
+        Reads chip ID
+        """
         self.__wait_drdy()
         chip_id = self.__read_data(Reg.REG_STATUS)
         chip_id = chip_id[0] >> 4
@@ -73,6 +126,14 @@ class ADS1256:
 
     #The configuration parameters of ADC, gain and data rate
     def config_adc(self, gain: Gain, drate: DataRate):
+        """
+        Configure the ADC settings before starting sampling
+        
+        :param gain: The gain to set the internal PGA
+        :type gain: Gain
+        :param drate: The datarate at which the ADS1256 will read a sample
+        :type drate: DataRate
+        """
         self.__wait_drdy()
         buf = [0,0,0,0,0,0,0,0]
         buf[0] = (0<<3) | (1<<2) | (0<<1)
@@ -87,26 +148,19 @@ class ADS1256:
         self.spi.digital_write(self.cs_pin, 1)  #cs 1
         self.spi.delay_ms(1)
 
-    def set_channel(self, channel):
-        if channel > 7:
-            return 0
-        self.__write_reg(Reg.REG_MUX, (channel<<4) | (1<<3))
-
-    def set_diff_channel(self, channel: int):
-        match channel:
-            case 0:
-                self.__write_reg(Reg.REG_MUX, (0 << 4) | 1) 	# differential channel AIN0-AIN1
-            case 1:
-                self.__write_reg(Reg.REG_MUX, (2 << 4) | 3) 	# differential channel AIN2-AIN3
-            case 2:
-                self.__write_reg(Reg.REG_MUX, (4 << 4) | 5) 	# differential channel AIN4-AIN5
-            case 3:
-                self.__write_reg(Reg.REG_MUX, (6 << 4) | 7) 	# differential channel AIN6-AIN7
-
     def set_mode(self, mode: ScanMode):
+        """
+        Set sampling mode
+        
+        :param mode: Single-ended or differential mode
+        :type mode: ScanMode
+        """
         self.scan_mode = mode
 
     def ADS1256_init(self):
+        """
+        Initialize the module and check chip ID
+        """
         if (self.spi.module_init() != 0):
             return -1
         self.__reset()
@@ -119,46 +173,40 @@ class ADS1256:
         self.config_adc(self.gain, self.data_rate)
         return 0
 
-    def read_adc_data(self):
-        self.__wait_drdy()
-        self.spi.digital_write(self.cs_pin, 0)#cs  0
-        self.spi.spi_writebyte([Commands.CMD_RDATA.value])
-        # self.spi.delay_ms(10)
-
-        buf = self.spi.spi_readbytes(3)
-        self.spi.digital_write(self.cs_pin, 1)#cs 1
-        read = (buf[0]<<16) & 0xff0000
-        read |= (buf[1]<<8) & 0xff00
-        read |= (buf[2]) & 0xff
-        if (read & 0x800000):
-            read &= 0xF000000
-        return read
- 
     def get_channel_value(self, channel: int):
-        if self.scan_mode == ScanMode.SingleEndedInput: # SingleEndedInput = 8 channels. 1 Differential input  4 channels
+        """
+        Read a single channel
+        
+        :param channel: Description
+        :type channel: int
+        """
+        if self.scan_mode == ScanMode.SINGLE_ENDED_INPUT: # SINGLE_ENDED_INPUT = 8 channels. DIFFERENTIAL_INPUT = 4 channels
             if channel >= 8:
                 return 0
 
-            self.set_channel(channel)
+            self.__set_channel(channel)
             self.__write_cmd(Commands.CMD_SYNC)
             # self.spi.delay_ms(10)
             self.__write_cmd(Commands.CMD_WAKEUP)
             # self.spi.delay_ms(200)
-            value = self.read_adc_data()
+            value = self.__read_adc_data()
 
         else:
             if channel >= 4:
                 return 0
-            self.set_diff_channel(channel)
+            self.__set_diff_channel(channel)
             self.__write_cmd(Commands.CMD_SYNC)
             # self.spi.delay_ms(10)
             self.__write_cmd(Commands.CMD_WAKEUP)
             # self.spi.delay_ms(10)
-            value = self.read_adc_data()
+            value = self.__read_adc_data()
 
         return value
 
     def get_all_channels(self):
+        """
+        read all channels
+        """
         value = [0,0,0,0,0,0,0,0]
         for i in range(0,8,1):
             value[i] = self.get_channel_value(i)

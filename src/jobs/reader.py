@@ -30,7 +30,7 @@ class Reader(Thread):
             with ADS1256(self.settings) as adc:
                 # Optimized: Set mode once if all channels are same type
                 # (Assuming differential for geophones)
-                adc.set_mode(ScanMode.DifferentialInput if self.settings.use_differential_channel else ScanMode.SingleEndedInput)
+                adc.set_mode(ScanMode.DIFFERENTIAL_INPUT if self.settings.use_differential_channel else ScanMode.SINGLE_ENDED_INPUT)
 
                 samples_collected = 0
 

@@ -2,11 +2,17 @@ from enum import Enum
 
 
 class ScanMode(Enum):
-    SingleEndedInput = 0
-    DifferentialInput = 1
+    """
+    Scan mode for the ADS1256. Can be single-ended or differential
+    """
+    SINGLE_ENDED_INPUT = 0
+    DIFFERENTIAL_INPUT = 1
 
 
 class Gain(Enum):
+    """
+    The gain at which the ADS1256 will set it's PGA
+    """
     ADS1256_GAIN_1 = 0  # GAIN   1
     ADS1256_GAIN_2 = 1	# GAIN   2
     ADS1256_GAIN_4 = 2	# GAIN   4
@@ -17,6 +23,9 @@ class Gain(Enum):
 
 
 class DataRate(Enum):
+    """
+    The data rate at which the ADS1256 will sample
+    """
     ADS1256_30000SPS = 0xF0 # reset the default values
     ADS1256_15000SPS = 0xE0
     ADS1256_7500SPS = 0xD0
@@ -35,6 +44,9 @@ class DataRate(Enum):
     ADS1256_2d5SPS = 0x03
 
 class Reg(Enum):
+    """
+    ADS1256 registry addresses
+    """
     REG_STATUS = 0  # x1H
     REG_MUX = 1     # 01H
     REG_ADCON = 2   # 20H
@@ -48,6 +60,9 @@ class Reg(Enum):
     REG_FSC2 = 10   # xxH
 
 class Commands(Enum):
+    """
+    ADS1256 commands
+    """
     CMD_WAKEUP = 0x00     # Completes SYNC and Exits Standby Mode 0000  0000 (00h)
     CMD_RDATA = 0x01      # Read Data 0000  0001 (01h)
     CMD_RDATAC = 0x03     # Read Data Continuously 0000   0011 (03h)
