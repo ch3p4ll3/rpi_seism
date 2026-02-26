@@ -33,6 +33,8 @@ class MSeedWriter(Thread):
         self._buffer = {}
         # Track the start time of the current batch
         self._start_time = None
+        self._recording_until = None
+        self.is_processing_event = False
 
     def run(self):
         next_write_time = time.time() + self.write_interval_sec
@@ -65,13 +67,26 @@ class MSeedWriter(Thread):
             except Empty:
                 pass
 
-            # check if it's time to write the file
+            # We only trigger this if we aren't already in an EQ countdown
+            if self.earthquake_event.is_set():
+                # Force the next write to happen in exactly 300 seconds
+                next_write_time = now + 300
+
+                if not self.is_processing_event:
+                    self.is_processing_event = True
+                    logger.warning("Earthquake detected! Saving file in 5 minutes.")
+                else:
+                    logger.warning("New earthquake detected during countdown! Resetting timer to 5 minutes.")
+
+            # Check if it's time to write (Scheduled OR Earthquake deadline)
             if now >= next_write_time:
                 self._write_mseed()
-                next_write_time = now + self.write_interval_sec
 
-            # Avoid busy-waiting
-            time.sleep(0.005)
+                # Reset for next interval
+                next_write_time = now + self.write_interval_sec
+                self.is_processing_event = False
+
+            time.sleep(0.01)
 
         # final write on shutdown
         self._write_mseed()
@@ -104,8 +119,9 @@ class MSeedWriter(Thread):
 
         if stream:
             # Generate filename based on actual data start time
+            triggered = "EQ_" if self.is_processing_event else "" 
             timestamp_str = UTCDateTime(self._start_time).strftime('%Y%m%dT%H%M%S')
-            filename = self.output_dir / f"data_{timestamp_str}.mseed"
+            filename = self.output_dir / f"data_{triggered}_{timestamp_str}.mseed"
 
             # Write to disk
             stream.write(str(filename), format='MSEED')
