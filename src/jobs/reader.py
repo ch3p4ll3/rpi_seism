@@ -11,6 +11,7 @@ from gpiozero.exc import BadPinFactory
 from gpiozero import OutputDevice, Device
 
 from src.settings import Settings
+from src.structs.sample import Sample
 
 logger = getLogger(__name__)
 
@@ -71,8 +72,10 @@ class Reader(Thread):
                         # Look for headers 0xAA 0xBB
                         if buffer[0] == 0xAA and buffer[1] == 0xBB:
                             packet_data = buffer[:PACKET_SIZE]
-                            if self._verify_checksum(packet_data):
-                                self._process_packet(packet_data)
+                            
+                            sample, checksum = Sample.from_bytes(packet_data)
+                            if checksum:
+                                self._process_packet(sample)
                                 del buffer[:PACKET_SIZE] # Remove processed packet
                             else:
                                 logger.warning("Checksum failed, shifting buffer")
@@ -86,28 +89,9 @@ class Reader(Thread):
         finally:
             logger.info("RS485 Reader stopped.")
 
-    def _verify_checksum(self, data):
-        # XOR all bytes except the last one (the checksum byte)
-        calculated = 0
-        for b in data[:-1]:
-            calculated ^= b
-        return calculated == data[-1]
-
-    def _process_packet(self, data):
-        # Unpack binary data
-        # _, _ are the headers, ch0-ch2 are the values, _ is checksum
-        _, _, ch0, ch1, ch2, _ = struct.unpack(PACKET_FORMAT, data)
-
+    def _process_packet(self, data: Sample):
         timestamp = time.time()
-
-        packet = {
-            "timestamp": timestamp,
-            "measurements": [
-                {"channel": self.channels.get(0), "value": ch0},
-                {"channel": self.channels.get(1), "value": ch1},
-                {"channel": self.channels.get(2), "value": ch2}
-            ]
-        }
+        packet = data.to_dict(timestamp, self.channels)
 
         for q in self.queues:
             # Replicating your original tuple format
