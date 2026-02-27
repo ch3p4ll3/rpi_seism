@@ -40,8 +40,8 @@ class WebSocketSender(Thread):
         # Sliding Window Config
         # window_size: 5s buffer for filter stability
         # step_size: 1s update interval
-        self.window_size = int(self.settings.sampling_rate * 5)
-        self.step_size = int(self.settings.sampling_rate)
+        self.window_size = int(self.settings.mcu.sampling_rate * 5)
+        self.step_size = int(self.settings.mcu.sampling_rate)
 
         # Per-channel state: { "EHZ": {"data": deque, "time": deque, "counter": 0}, ... }
         self.channels_state = {}
@@ -105,7 +105,7 @@ class WebSocketSender(Thread):
         # Create Trace from current buffer
         data_array = np.array(state["data"])
         tr = Trace(data=data_array)
-        tr.stats.sampling_rate = self.settings.sampling_rate
+        tr.stats.sampling_rate = self.settings.mcu.sampling_rate
         tr.stats.starttime = UTCDateTime(state["time"][0])
 
         # Decimate (Anti-Alias filter applied)

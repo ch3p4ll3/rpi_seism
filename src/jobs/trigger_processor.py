@@ -25,7 +25,7 @@ class TriggerProcessor(Thread):
         self.shutdown_event = shutdown_event
 
         # Initialize the detector with your specific sampling rate
-        self.detector = STALTAProperty(sampling_rate=settings.sampling_rate)
+        self.detector = STALTAProperty(sampling_rate=settings.mcu.sampling_rate)
 
         # We usually trigger on the vertical component
         self.trigger_channel = "EHZ"

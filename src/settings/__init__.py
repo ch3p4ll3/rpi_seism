@@ -4,6 +4,7 @@ import yaml
 from pydantic import BaseModel
 
 from .channel import Channel
+from .mcu_settings import MCUSettings
 
 
 class Settings(BaseModel):
@@ -15,9 +16,9 @@ class Settings(BaseModel):
     network: str
     station: str
 
-    sampling_rate: int
     decimation_factor: int
     channels: list[Channel]
+    mcu: MCUSettings
 
     def export_settings(self):
         """
@@ -76,7 +77,6 @@ class Settings(BaseModel):
         data = {
             "network": "XX",
             "station": "RPI3",
-            "sampling_rate": 100,
             "decimation_factor": 4,
             "channels": [
                 {
@@ -94,7 +94,12 @@ class Settings(BaseModel):
                     "adc_channel": 2,
                     "orientation": "east",
                 }
-            ]
+            ],
+            "mcu": {
+                "sampling_rate": 100,
+                "adc_gain": 6,
+                "adc_sample_rate": 11
+            }
         }
 
         return cls(**data)
