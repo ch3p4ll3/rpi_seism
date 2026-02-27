@@ -8,6 +8,10 @@ from src.utils.sta_lta import STALTAProperty
 logger = getLogger(__name__)
 
 class TriggerProcessor(Thread):
+    """
+    Thread that processes incoming seismic data packets, applies a STA/LTA algorithm
+    to detect earthquakes, and sets an earthquake event flag when a trigger condition is met.
+    """
     def __init__(
         self,
         settings: Settings,

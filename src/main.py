@@ -14,6 +14,12 @@ logger = getLogger(__name__)
 
 
 def main():
+    """
+    Main function that initializes the seismic data acquisition system.
+    It sets up logging, loads settings, creates necessary threads for reading data,
+    writing to MiniSEED files, sending data over WebSocket, and processing triggers.
+    It also handles graceful shutdown on receiving termination signals.
+    """
     try:
         nice(-20)
     except PermissionError:
@@ -29,7 +35,7 @@ def main():
 
     # Define a signal handler for systemd (SIGTERM)
     def handle_exit(sig, frame):
-        logger.debug(f"Exit signal {sig} received. Shutting down...")
+        logger.debug("Exit signal %s received. Shutting down...", sig)
         shutdown_event.set()
 
     signal.signal(signal.SIGTERM, handle_exit)

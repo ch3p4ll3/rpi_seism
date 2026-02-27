@@ -12,6 +12,11 @@ from src.settings import Settings
 logger = getLogger(__name__)
 
 class MSeedWriter(Thread):
+    """
+    Thread that buffers incoming seismic data packets and writes them to MiniSEED files at
+    regular intervals. It also handles earthquake events by ensuring that a file is saved
+    immediately when an event is detected, and then continues with the regular saving schedule.
+    """
     def __init__(
         self,
         settings: Settings,

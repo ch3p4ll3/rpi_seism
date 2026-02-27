@@ -21,6 +21,10 @@ PACKET_SIZE = struct.calcsize(PACKET_FORMAT)
 
 class Reader(Thread):
     def __init__(self, port: str, settings: Settings, queues: list[Queue], shutdown_event: Event):
+        """
+        Thread that continuously reads from the RS-485 serial port,
+        processes incoming packets, and distributes data to queues.
+        """
         super().__init__()
         self.port = port
         self.settings = settings

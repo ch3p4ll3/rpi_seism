@@ -14,6 +14,10 @@ from src.settings import Settings
 logger = getLogger(__name__)
 
 class WebSocketSender(Thread):
+    """Thread that serves a WebSocket endpoint to broadcast decimated seismic data
+    in real-time to connected clients. It maintains a sliding window buffer for each channel,
+    applies decimation, and sends downsampled data every second.
+    """
     def __init__(
         self,
         settings: Settings,
@@ -66,7 +70,7 @@ class WebSocketSender(Thread):
                 packet = await loop.run_in_executor(None, self.data_queue.get, True, 0.5)
 
                 ts = packet["timestamp"]
-                
+
                 # update each channel's buffer
                 for item in packet["measurements"]:
                     ch_name = item["channel"].name
@@ -88,7 +92,7 @@ class WebSocketSender(Thread):
                     if (len(state["data"]) == self.window_size and 
                         state["counter"] % self.step_size == 0):
                         await self._process_and_broadcast(ch_name)
-                
+
             except Empty:
                 continue
             except Exception:
@@ -110,7 +114,7 @@ class WebSocketSender(Thread):
             # Note: decimation_factor must be e.g., 2, 4, 5, 8, 10
             tr_decimated.decimate(self.settings.decimation_factor, no_filter=False)
         except Exception as e:
-            logger.error(f"Decimation failed for {channel_name}: {e}")
+            logger.error("Decimation failed for %s: %s", channel_name, e)
             return
 
         # Extract the new batch of downsampled samples
