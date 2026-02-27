@@ -1,74 +1,120 @@
-import time
 from threading import Thread, Event
 from queue import Queue
 from logging import getLogger
 
+import time
+import struct
+
+import serial
+from gpiozero.pins.mock import MockFactory
+from gpiozero.exc import BadPinFactory
+from gpiozero import OutputDevice, Device
+
 from src.settings import Settings
-from src.settings.channel import Channel
-from src.driver.ads1256 import ADS1256
-from src.driver.enums import ScanMode
 
 logger = getLogger(__name__)
 
 
-class Reader(Thread):
-    def __init__(
-        self,
-        settings: Settings,
-        queues: list[Queue],
-        shutdown_event: Event
-    ):
-        self.settings = settings
-        self.shutdown_event = shutdown_event
-        self.queues = queues
+# < = little endian, B = uint8, i = int32
+PACKET_FORMAT = "<BBiiiB"
+PACKET_SIZE = struct.calcsize(PACKET_FORMAT)
 
+class Reader(Thread):
+    def __init__(self, port: str, settings: Settings, queues: list[Queue], shutdown_event: Event):
+        """
+        Thread that continuously reads from the RS-485 serial port,
+        processes incoming packets, and distributes data to queues.
+        """
         super().__init__()
+        self.port = port
+        self.settings = settings
+        self.queues = queues
+        self.shutdown_event = shutdown_event
+        self.baudrate = 250000
+        self.heartbeat_interval = 0.5  # Send pulse every 500ms
+        self.last_heartbeat = 0
+
+        # Initialize the DE/RE control pin
+        # Set active_high=True (Standard for MAX485 DE pin)
+        # initial_value=False (Start in Listen mode)
+        try:
+            self.max485_control = OutputDevice(5, active_high=True, initial_value=False)
+        except BadPinFactory:
+            Device.pin_factory = MockFactory()
+            self.max485_control = OutputDevice(5, active_high=True, initial_value=False)
+        
+        self.channels = self.__map_channels()
 
     def run(self):
-        # We divide the interval by the number of channels to keep the cycle consistent
-        num_channels = len(self.settings.channels)
-        interval = 1.0 / self.settings.sampling_rate / num_channels
-
-        start_time = time.perf_counter()
-        samples_collected = 0
-
         try:
-            with ADS1256(self.settings) as adc:
-                # Optimized: Set mode once if all channels are same type
-                # (Assuming differential for geophones)
-                adc.set_mode(ScanMode.DIFFERENTIAL_INPUT if self.settings.use_differential_channel else ScanMode.SINGLE_ENDED_INPUT)
+            with serial.Serial(self.port, self.baudrate, timeout=0.1) as ser:
+                logger.info("Connected to RS-485 on %s at %d", self.port, self.baudrate)
+
+                # Buffer to store incoming bytes
+                buffer = bytearray()
 
                 while not self.shutdown_event.is_set():
-                    timestamp = time.time()
+                    # send Heartbeat to keep Arduino streaming
+                    if time.time() - self.last_heartbeat > self.heartbeat_interval:
+                        self.max485_control.on()   # Switch MAX485 to Transmit
+                        ser.write(b'\x01')         # Send pulse
+                        ser.flush()                # Wait for bits to leave the UART
+                        self.max485_control.off()  # Switch back to Listen immediately
+                        self.last_heartbeat = time.time()
 
-                    for channel in self.settings.channels:
-                        # Direct read - minimizing MUX switching overhead
-                        adc_value = adc.get_channel_value(channel.adc_channel)
-                        self.__update_queues(channel, adc_value, timestamp)
+                    # read available data
+                    if ser.in_waiting > 0:
+                        buffer.extend(ser.read(ser.in_waiting))
 
-                    samples_collected += 1
-
-                    # Precise Timing: Calculate sleep until the next 100Hz tick
-                    next_tick = start_time + (samples_collected * interval)
-                    sleep_time = next_tick - time.perf_counter()
-
-                    if sleep_time > 0:
-                        time.sleep(sleep_time)
-                    else:
-                        # If we are here, the RPi is falling behind!
-                        logger.warning("RPi is falling behind by %f s", abs(sleep_time))
-
-                        # This 'snaps' the schedule to the present moment
-                        start_time = time.perf_counter()
-                        samples_collected = 0
+                    # process buffer for packets
+                    while len(buffer) >= PACKET_SIZE:
+                        # Look for headers 0xAA 0xBB
+                        if buffer[0] == 0xAA and buffer[1] == 0xBB:
+                            packet_data = buffer[:PACKET_SIZE]
+                            if self._verify_checksum(packet_data):
+                                self._process_packet(packet_data)
+                                del buffer[:PACKET_SIZE] # Remove processed packet
+                            else:
+                                logger.warning("Checksum failed, shifting buffer")
+                                del buffer[0] # Slide window to find next header
+                        else:
+                            # Not a header, discard byte and keep looking
+                            del buffer[0]
 
         except Exception:
-            logger.exception("Reader thread exception", exc_info=True)
+            logger.exception("RS485 Reader exception")
         finally:
-            logger.debug("Recording finished. Total cycles: %d", samples_collected)
+            logger.info("RS485 Reader stopped.")
 
-    def __update_queues(self, channel: Channel, value: float, timestamp: float):
-        for queue in self.queues:
-            # Tip: Ensure your consumer queue handles data quickly
-            # so this thread doesn't block.
-            queue.put((channel, value, timestamp))
+    def _verify_checksum(self, data):
+        # XOR all bytes except the last one (the checksum byte)
+        calculated = 0
+        for b in data[:-1]:
+            calculated ^= b
+        return calculated == data[-1]
+
+    def _process_packet(self, data):
+        # Unpack binary data
+        # _, _ are the headers, ch0-ch2 are the values, _ is checksum
+        _, _, ch0, ch1, ch2, _ = struct.unpack(PACKET_FORMAT, data)
+
+        timestamp = time.time()
+
+        packet = {
+            "timestamp": timestamp,
+            "measurements": [
+                {"channel": self.channels.get(0), "value": ch0},
+                {"channel": self.channels.get(1), "value": ch1},
+                {"channel": self.channels.get(2), "value": ch2}
+            ]
+        }
+
+        for q in self.queues:
+            # Replicating your original tuple format
+            q.put(packet)
+
+    def __map_channels(self):
+        return {
+            i.adc_channel: i
+            for i in self.settings.channels
+        }

@@ -3,6 +3,12 @@ from collections import deque
 
 
 class STALTAProperty:
+    """
+    A simple implementation of the STA/LTA algorithm for earthquake detection.
+    This class maintains two buffers for the short-term average (STA)
+    and long-term average (LTA) of the signal energy, and provides a method to process
+    incoming samples and determine if a trigger condition is met based on predefined thresholds.
+    """
     def __init__(self, sta_sec=1.0, lta_sec=30.0, sampling_rate=100.0):
         self.sta_len = int(sta_sec * sampling_rate)
         self.lta_len = int(lta_sec * sampling_rate)

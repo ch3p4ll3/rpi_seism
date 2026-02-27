@@ -4,31 +4,49 @@ import yaml
 from pydantic import BaseModel
 
 from .channel import Channel
-from .spi import Spi
 
 
 class Settings(BaseModel):
+    """
+    Pydantic model for application settings. This class defines the structure of the
+    configuration, provides methods to load and save settings from/to a YAML file,
+    and includes a method to update existing settings with new values.
+    """
     network: str
     station: str
 
     sampling_rate: int
     decimation_factor: int
-    use_differential_channel: bool
-    spi: Spi
     channels: list[Channel]
 
     def export_settings(self):
+        """
+        Export the current settings to a YAML file. This method serializes the settings
+        to a YAML format and saves it to a predefined location.
+        """
         settings_file_path = Path(__file__).parent.parent.parent / "data/config.yml"
 
         with open(settings_file_path, "w", encoding="UTF-8") as settings_file:
             yaml.dump(self.model_dump(mode='json'), settings_file, indent=2)
 
     def update_from(self, new: "Settings") -> None:
+        """
+        Update the current settings with values from another Settings instance.
+        This method iterates over all fields defined in the Settings model and updates
+        the current instance's attributes with the corresponding values from the new instance.
+        """
         for field in Settings.model_fields:
             setattr(self, field, getattr(new, field))
 
     @classmethod
     def load_settings(cls):
+        """
+        Load settings from a YAML file. If the file does not exist, it creates a new one
+        with default settings. This method checks for the existence of the configuration file,
+        and if it is not found, it generates a default configuration and saves it.
+        If the file exists, it reads the YAML content and initializes a
+        Settings instance with the loaded values.
+        """
         base_path = Path(__file__).parent.parent.parent / "data/config.yml"
 
         # If YAML config does not exist
@@ -49,38 +67,32 @@ class Settings(BaseModel):
 
     @classmethod
     def get_default_settings(cls):
+        """
+        Generate a default Settings instance with predefined values. This method creates
+        a new Settings object populated with default values for all fields,
+        including a sample list of channels. This is useful for initializing
+        the application with a known configuration when no existing settings file is found.
+        """
         data = {
             "network": "XX",
             "station": "RPI3",
             "sampling_rate": 100,
             "decimation_factor": 4,
-            "use_differential_channel": True,
-            "spi": {
-                "pwdn_pin": 27,
-                "cs_pin": 22,
-                "drdy_pin": 17
-            },
             "channels": [
                 {
                     "name": "EHZ",
                     "adc_channel": 0,
                     "orientation": "vertical",
-                    "gain": 1000,
-                    "sensitivity": 28.8
                 },
                 {
                     "name": "EHN",
                     "adc_channel": 1,
                     "orientation": "north",
-                    "gain": 1000,
-                    "sensitivity": 28.8
                 },
                 {
                     "name": "EHE",
                     "adc_channel": 2,
                     "orientation": "east",
-                    "gain": 1000,
-                    "sensitivity": 28.8
                 }
             ]
         }

@@ -5,10 +5,10 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "lgpio>=0.2.2.0",
+    "gpiozero>=2.0.1",
     "obspy>=1.4.2",
     "pyaml>=25.7.0",
     "pydantic>=2.12.5",
-    "spidev>=3.8",
+    "pyserial>=3.5",
     "websockets>=16.0",
 ]

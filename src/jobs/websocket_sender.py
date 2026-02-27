@@ -11,11 +11,13 @@ from obspy import UTCDateTime, Trace
 
 from src.settings import Settings
 
-
 logger = getLogger(__name__)
 
-
 class WebSocketSender(Thread):
+    """Thread that serves a WebSocket endpoint to broadcast decimated seismic data
+    in real-time to connected clients. It maintains a sliding window buffer for each channel,
+    applies decimation, and sends downsampled data every second.
+    """
     def __init__(
         self,
         settings: Settings,
@@ -31,25 +33,25 @@ class WebSocketSender(Thread):
         self.earthquake_event = earthquake_event
         self.host = host
         self.port = port
-        self._clients = set()
-
         self.settings = settings
 
-        # Sliding Window Config
-        self.window_size = self.settings.sampling_rate * 5  # 2.5s lookback for filter stability
-        self.step_size = self.settings.sampling_rate    # Update every 0.5s
+        self._clients = set()
 
-        # Buffers
-        self.data_buffer = deque(maxlen=self.window_size)
-        self.time_buffer = deque(maxlen=self.window_size)
-        self.sample_counter = 0
+        # Sliding Window Config
+        # window_size: 5s buffer for filter stability
+        # step_size: 1s update interval
+        self.window_size = int(self.settings.sampling_rate * 5)
+        self.step_size = int(self.settings.sampling_rate)
+
+        # Per-channel state: { "EHZ": {"data": deque, "time": deque, "counter": 0}, ... }
+        self.channels_state = {}
 
     def run(self):
         asyncio.run(self._main_loop())
 
     async def _main_loop(self):
         async with websockets.serve(self._handle_connection, self.host, self.port):
-            logger.debug("Downsampled Data Server started on ws://%s:%d", self.host, self.port)
+            logger.info("WebSocket Server started on ws://%s:%d", self.host, self.port)
             await self._producer_loop()
 
     async def _handle_connection(self, websocket):
@@ -61,53 +63,69 @@ class WebSocketSender(Thread):
 
     async def _producer_loop(self):
         loop = asyncio.get_running_loop()
-        
+
         while not self.shutdown_event.is_set():
             try:
-                # Get raw point from queue
-                item = await loop.run_in_executor(None, self.data_queue.get, True, 0.5)
-                channel, value, timestamp = item
-                
-                # Add to sliding window
-                self.data_buffer.append(float(value))
-                self.time_buffer.append(timestamp)
-                self.sample_counter += 1
+                # Expecting: {"timestamp": float, "measurements": [{"channel": obj, "value": int}, ...]}
+                packet = await loop.run_in_executor(None, self.data_queue.get, True, 0.5)
 
-                # Process every STEP_SIZE samples once window is primed
-                if len(self.data_buffer) == self.window_size and (self.sample_counter % self.step_size == 0):
-                    await self._process_and_broadcast(channel.name)
-                
+                ts = packet["timestamp"]
+
+                # update each channel's buffer
+                for item in packet["measurements"]:
+                    ch_name = item["channel"].name
+                    val = item["value"]
+
+                    if ch_name not in self.channels_state:
+                        self.channels_state[ch_name] = {
+                            "data": deque(maxlen=self.window_size),
+                            "time": deque(maxlen=self.window_size),
+                            "counter": 0
+                        }
+
+                    state = self.channels_state[ch_name]
+                    state["data"].append(float(val))
+                    state["time"].append(ts)
+                    state["counter"] += 1
+
+                    # 3. Process every STEP_SIZE samples for THIS specific channel
+                    if (len(state["data"]) == self.window_size and 
+                        state["counter"] % self.step_size == 0):
+                        await self._process_and_broadcast(ch_name)
+
             except Empty:
                 continue
-            except Exception as e:
-                logger.exception("Error in producer.", exc_info=True)
+            except Exception:
+                logger.exception("Error in WebSocket producer loop")
 
     async def _process_and_broadcast(self, channel_name):
-        """Perform downsampling on the current window and send results."""
-        # Convert deque to array for ObsPy
-        data_array = np.array(self.data_buffer)
-        
-        # Create Trace
+        """Perform decimation and broadcast for a specific channel."""
+        state = self.channels_state[channel_name]
+
+        # Create Trace from current buffer
+        data_array = np.array(state["data"])
         tr = Trace(data=data_array)
         tr.stats.sampling_rate = self.settings.sampling_rate
-        tr.stats.starttime = UTCDateTime(self.time_buffer[0])
+        tr.stats.starttime = UTCDateTime(state["time"][0])
 
-        # Decimate (Apply Anti-Alias filter automatically)
-        # We work on a copy to keep the raw buffer pristine
+        # Decimate (Anti-Alias filter applied)
         tr_decimated = tr.copy()
-        tr_decimated.decimate(self.settings.decimation_factor, no_filter=False)
+        try:
+            # Note: decimation_factor must be e.g., 2, 4, 5, 8, 10
+            tr_decimated.decimate(self.settings.decimation_factor, no_filter=False)
+        except Exception as e:
+            logger.error("Decimation failed for %s: %s", channel_name, e)
+            return
 
-        # Extract only the "new" samples since the last step
-        # For Factor 4 and Step 100, we take the last 25 samples
+        # Extract the new batch of downsampled samples
         new_samples_count = int(self.step_size / self.settings.decimation_factor)
         downsampled_values = tr_decimated.data[-new_samples_count:]
-        
-        # We send the latest point or the whole new batch
-        # Sending the whole batch is better for high-performance graphing
+
+        # Construct and send the message
         message = json.dumps({
             "channel": channel_name,
             "timestamp": tr_decimated.stats.endtime.isoformat(),
-            "fs": tr_decimated.stats.sampling_rate,
+            "fs": tr_decimated.stats.sampling_rate, # This is the original rate
             "data": downsampled_values.tolist() 
         })
 
@@ -116,10 +134,12 @@ class WebSocketSender(Thread):
     async def _broadcast(self, message):
         if not self._clients:
             return
+
         dead_clients = set()
         send_tasks = [self._safe_send(ws, message, dead_clients) for ws in self._clients]
         if send_tasks:
             await asyncio.gather(*send_tasks)
+
         if dead_clients:
             self._clients.difference_update(dead_clients)
 
