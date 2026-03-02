@@ -3,7 +3,6 @@ from queue import Queue
 from logging import getLogger
 
 import time
-import struct
 
 import serial
 from gpiozero.pins.mock import MockFactory
@@ -15,10 +14,6 @@ from src.structs.sample import Sample
 
 logger = getLogger(__name__)
 
-
-# < = little endian, B = uint8, i = int32
-PACKET_FORMAT = "<BBiiiB"
-PACKET_SIZE = struct.calcsize(PACKET_FORMAT)
 
 class Reader(Thread):
     def __init__(self, port: str, settings: Settings, queues: list[Queue], shutdown_event: Event):
@@ -43,7 +38,7 @@ class Reader(Thread):
         except BadPinFactory:
             Device.pin_factory = MockFactory()
             self.max485_control = OutputDevice(5, active_high=True, initial_value=False)
-        
+
         self.channels = self.__map_channels()
 
     def run(self):
@@ -68,18 +63,19 @@ class Reader(Thread):
 
                     # read available data
                     if ser.in_waiting > 0:
+                        ser.rts = True
                         buffer.extend(ser.read(ser.in_waiting))
 
                     # process buffer for packets
-                    while len(buffer) >= PACKET_SIZE:
+                    while len(buffer) >= Sample.PACKET_SIZE:
                         # Look for headers 0xAA 0xBB
                         if buffer[0] == 0xAA and buffer[1] == 0xBB:
-                            packet_data = buffer[:PACKET_SIZE]
+                            packet_data = buffer[:Sample.PACKET_SIZE]
 
                             sample, checksum = Sample.from_bytes(packet_data)
                             if checksum:
                                 self._process_packet(sample)
-                                del buffer[:PACKET_SIZE] # Remove processed packet
+                                del buffer[:Sample.PACKET_SIZE] # Remove processed packet
                             else:
                                 logger.warning("Checksum failed, shifting buffer")
                                 del buffer[0] # Slide window to find next header
@@ -110,7 +106,7 @@ class Reader(Thread):
     def _sendSettings(self, ser: serial.Serial):
         time.sleep(2)   # Wait to arduino to reboot
         sent_bytes = self.settings.mcu.to_bytes  # This should be your 6-byte packet
-        packet_size = len(sent_bytes)
+        Sample.PACKET_SIZE = len(sent_bytes)
 
         logger.info("Sending settings to MCU: %s", sent_bytes.hex(' '))
 
@@ -128,14 +124,14 @@ class Reader(Thread):
         start_time = time.time()
 
         while (time.time() - start_time) < 10:
-            if ser.in_waiting >= packet_size:
+            if ser.in_waiting >= Sample.PACKET_SIZE:
                 # Check for header alignment
                 potential_header = ser.read(1)
                 if potential_header == b'\xcc':
                     next_byte = ser.read(1)
                     if next_byte == b'\xdd':
-                        # We found the start! Read the remaining bytes (packet_size - 2)
-                        remaining = ser.read(packet_size - 2)
+                        # We found the start! Read the remaining bytes (Sample.PACKET_SIZE - 2)
+                        remaining = ser.read(Sample.PACKET_SIZE - 2)
                         response = potential_header + next_byte + remaining
                         break
                 # If not header, continue loop to effectively "drain" garbage bytes
