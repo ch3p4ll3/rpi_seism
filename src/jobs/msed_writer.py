@@ -73,15 +73,12 @@ class MSeedWriter(Thread):
                 pass
 
             # We only trigger this if we aren't already in an EQ countdown
-            if self.earthquake_event.is_set():
+            if self.earthquake_event.is_set() and not self.is_processing_event:
                 # Force the next write to happen in exactly 300 seconds
                 next_write_time = now + 300
+                self.is_processing_event = True
 
-                if not self.is_processing_event:
-                    self.is_processing_event = True
-                    logger.warning("Earthquake detected! Saving file in 5 minutes.")
-                else:
-                    logger.warning("New earthquake detected during countdown! Resetting timer to 5 minutes.")
+                logger.warning("Earthquake detected! Saving file in 5 minutes.")
 
             # Check if it's time to write (Scheduled OR Earthquake deadline)
             if now >= next_write_time:
