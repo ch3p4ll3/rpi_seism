@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 from .channel import Channel
 from .mcu_settings import MCUSettings
+from .notifier import Notifier
 
 
 class Settings(BaseModel):
@@ -19,6 +20,7 @@ class Settings(BaseModel):
     decimation_factor: int
     channels: list[Channel]
     mcu: MCUSettings
+    notifiers: list[Notifier]
 
     def export_settings(self):
         """
@@ -99,7 +101,13 @@ class Settings(BaseModel):
                 "sampling_rate": 100,
                 "adc_gain": 6,
                 "adc_sample_rate": 11
-            }
+            },
+            "notifiers": [
+                {
+                    "url": "tgram://{bot_token}/{chat_id}/",
+                    "enabled": True
+                }
+            ]
         }
 
         return cls(**data)

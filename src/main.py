@@ -1,16 +1,15 @@
 import signal
-from os import nice
 
 from queue import Queue
 from pathlib import Path
 from threading import Event
-from logging import getLogger
+import logging
 
 from src.settings import Settings
-from src.jobs import Reader, MSeedWriter, WebSocketSender, TriggerProcessor
+from src.jobs import Reader, MSeedWriter, WebSocketSender, TriggerProcessor, NotifierSender
 
 
-logger = getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 def main():
@@ -20,11 +19,6 @@ def main():
     writing to MiniSEED files, sending data over WebSocket, and processing triggers.
     It also handles graceful shutdown on receiving termination signals.
     """
-    try:
-        nice(-20)
-    except PermissionError:
-        logger.error("Failed to set priority. Run with sudo!")
-
     # Define paths and load settings
     data_base_folder = Path(__file__).parent.parent / "data"
     settings = Settings.load_settings()
@@ -45,12 +39,13 @@ def main():
     msed_writer_queue = Queue()
     websocket_queue = Queue()
     trigger_queue = Queue()
+    notifier_queue = Queue()
 
     # Create and start the Reader job thread (reads from ADC, puts data in the queues)
     reader_job = Reader(
         "/dev/ttyUSB0",
         settings,
-        [msed_writer_queue, websocket_queue, trigger_queue],
+        [msed_writer_queue, websocket_queue, trigger_queue, notifier_queue],
         shutdown_event
     )
     reader_job.start()
@@ -85,6 +80,15 @@ def main():
     )
     trigger_processor_job.start()
 
+        # Create and start the TriggerProcessor job thread (sends data over WebSocket)
+    notifier_job = NotifierSender(
+        settings,
+        notifier_queue,
+        shutdown_event,
+        earthquake_event
+    )
+    notifier_job.start()
+
 
     # Gracefully stop all threads
     reader_job.join()
@@ -93,6 +97,7 @@ def main():
     m_seed_writer_job.join()
     websocket_job.join()
     trigger_processor_job.join()
+    notifier_job.join()
 
     logger.debug("All threads stopped and the main script has finished.")
 

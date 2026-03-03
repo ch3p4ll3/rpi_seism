@@ -111,6 +111,7 @@ class WebSocketSender(Thread):
         # Decimate (Anti-Alias filter applied)
         tr_decimated = tr.copy()
         try:
+            tr_decimated.filter("bandpass",freqmin=0.2, freqmax=10.0)
             # Note: decimation_factor must be e.g., 2, 4, 5, 8, 10
             tr_decimated.decimate(self.settings.decimation_factor, no_filter=False)
         except Exception as e:
