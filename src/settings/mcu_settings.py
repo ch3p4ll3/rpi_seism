@@ -30,6 +30,7 @@ class MCUSettings(BaseModel):
 
     adc_gain: PGA = PGA.PGA_64
     adc_sample_rate: DataRate = DataRate.DRATE_2000SPS
+    vref: float = 2.5   # V (measure your board, typically 2.5)
 
     @model_validator(mode='after')
     def validate_timing_margin(self) -> 'MCUSettings':

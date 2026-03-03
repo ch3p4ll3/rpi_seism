@@ -85,22 +85,26 @@ class Settings(BaseModel):
                     "name": "EHZ",
                     "adc_channel": 0,
                     "orientation": "vertical",
+                    "sensitivity": 28.8
                 },
                 {
                     "name": "EHN",
                     "adc_channel": 1,
                     "orientation": "north",
+                    "sensitivity": 28.8
                 },
                 {
                     "name": "EHE",
                     "adc_channel": 2,
                     "orientation": "east",
+                    "sensitivity": 28.8
                 }
             ],
             "mcu": {
                 "sampling_rate": 100,
                 "adc_gain": 6,
-                "adc_sample_rate": 11
+                "adc_sample_rate": 11,
+                "vref": 2.5
             },
             "notifiers": [
                 {

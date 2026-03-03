@@ -126,7 +126,7 @@ class WebSocketSender(Thread):
         message = json.dumps({
             "channel": channel_name,
             "timestamp": tr_decimated.stats.endtime.isoformat(),
-            "fs": tr_decimated.stats.sampling_rate, # This is the original rate
+            "fs": tr_decimated.stats.sampling_rate,
             "data": downsampled_values.tolist() 
         })
 

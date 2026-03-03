@@ -34,11 +34,12 @@ class MSeedWriter(Thread):
         self.shutdown_event = shutdown_event
         self.earthquake_event = earthquake_event
 
+        self.channels = self.__map_channels()
+
         # Buffer structure: { channel_name: [value1, value2, ...] }
         self._buffer = {}
         # Track the start time of the current batch
         self._start_time = None
-        self._recording_until = None
         self.is_processing_event = False
 
     def run(self):
@@ -106,11 +107,19 @@ class MSeedWriter(Thread):
             if not values:
                 continue
 
-            # Create Trace
-            # Using int32 or float32 depending on your ADC precision
-            trace = Trace(data=np.array(values, dtype=np.float32))
+            channel = self.channels.get(ch_name, None)
 
-            # Header Info
+            if channel is None:
+                logger.warning("No config found for channel %s, skipping calibration", ch_name)
+                scale = 1.0
+            else:
+                scale = self.settings.mcu.vref / (self.settings.mcu.adc_gain * (2**23) * channel.sensitivity)
+
+            raw = np.array(values, dtype=np.int32)        # keep full 24-bit precision
+            calibrated = raw.astype(np.float64) * scale   # m/s as float64
+
+            # Create Trace
+            trace = Trace(data=calibrated)
             trace.stats.starttime = UTCDateTime(self._start_time)
             trace.stats.sampling_rate = self.settings.mcu.sampling_rate
             trace.stats.channel = ch_name
@@ -121,7 +130,7 @@ class MSeedWriter(Thread):
 
         if stream:
             # Generate filename based on actual data start time
-            triggered = "EQ_" if self.is_processing_event else "" 
+            triggered = "EQ" if self.is_processing_event else "" 
             timestamp_str = UTCDateTime(self._start_time).strftime('%Y%m%dT%H%M%S')
             filename = self.output_dir / f"data_{triggered}_{timestamp_str}.mseed"
 
@@ -132,3 +141,9 @@ class MSeedWriter(Thread):
         # Reset state for next interval
         self._buffer.clear()
         self._start_time = None
+
+    def __map_channels(self):
+        return {
+            i.name: i
+            for i in self.settings.channels
+        }
